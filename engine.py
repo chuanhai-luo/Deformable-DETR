@@ -15,6 +15,9 @@ import os
 import sys
 from typing import Iterable
 
+import numpy as np
+import cv2
+
 import torch
 import util.misc as utils
 from datasets.coco_eval import CocoEvaluator
@@ -100,8 +103,8 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
             output_dir=os.path.join(output_dir, "panoptic_eval"),
         )
 
-    for samples, targets in metric_logger.log_every(data_loader, 10, header):
-        samples = samples.to(device)
+    for samples, targets, orig_data in metric_logger.log_every(data_loader, 10, header):
+        samples = samples.to(device) # [batch_size, channels, height, width]
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
         outputs = model(samples)
@@ -121,6 +124,9 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
 
         orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
         results = postprocessors['bbox'](outputs, orig_target_sizes)
+
+        visualize(results, orig_data, data_loader)
+
         if 'segm' in postprocessors.keys():
             target_sizes = torch.stack([t["size"] for t in targets], dim=0)
             results = postprocessors['segm'](results, outputs, orig_target_sizes, target_sizes)
@@ -164,3 +170,52 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         stats['PQ_th'] = panoptic_res["Things"]
         stats['PQ_st'] = panoptic_res["Stuff"]
     return stats, coco_evaluator
+
+def draw_gt_pred(image, gt, prediction, data_loader, draw=False):
+    if not draw:
+        return
+    
+    image_save_dir = "/home/ocean/Projects/Deformable-DETR/debug"
+    if not os.path.exists(image_save_dir):
+        os.makedirs(image_save_dir, exist_ok=True)
+
+    gt_vis = image.copy()
+    pred_vis = image.copy()
+    
+    for object in gt:
+        bbox = np.array(object["bbox"]).astype(np.int32)
+
+        cv2.rectangle(gt_vis, bbox[:2], bbox[:2] + bbox[2:], (0, 0, 255), 1)
+        cv2.putText(gt_vis, data_loader.dataset.category_id_to_name[object["category_id"]], 
+                    bbox[:2], cv2.FONT_HERSHEY_SIMPLEX, 
+                    0.5, (0, 255, 0), 1, cv2.LINE_AA)
+        
+    gt_vis = np.concatenate((np.ones((20, gt_vis.shape[1], gt_vis.shape[2])) * 255, 
+                             gt_vis))
+    cv2.putText(gt_vis, "gt", (2, 13), cv2.FONT_HERSHEY_SIMPLEX, 
+                0.5, (0, 0, 0), 1, cv2.LINE_AA)
+    
+    for i in range(len(gt)):
+        bbox = prediction["boxes"][i].cpu().numpy().astype(np.int32)
+        label = prediction["labels"][i].item()
+        score = prediction["scores"][i].item()
+
+        cv2.rectangle(pred_vis, bbox[:2], bbox[2:], (0, 0, 255), 1)
+        cv2.putText(pred_vis, data_loader.dataset.category_id_to_name[label], 
+                    bbox[:2], cv2.FONT_HERSHEY_SIMPLEX, 
+                    0.5, (0, 255, 0), 1, cv2.LINE_AA)
+
+    pred_vis = np.concatenate((np.ones((20, pred_vis.shape[1], pred_vis.shape[2])) * 255, 
+                               pred_vis))
+    cv2.putText(pred_vis, "prediction", (2, 13), cv2.FONT_HERSHEY_SIMPLEX, 
+                0.5, (0, 0, 0), 1, cv2.LINE_AA)
+
+    cv2.imwrite(os.path.join(image_save_dir, f"image.png"), 
+                np.concatenate((gt_vis, pred_vis), axis=1))
+
+def visualize(results, orig_data, data_loader):
+    for prediction, data in zip(results, orig_data):
+        image = data["image"]
+        label = data["label"]
+
+        draw_gt_pred(image, label, prediction, data_loader, True)

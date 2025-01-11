@@ -1,0 +1,30 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "r50_deformable_detr_single_scale",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "/home/ocean/miniconda3/envs/deformable_detr/bin/python",
+            "program": "${workspaceFolder}/main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--num_feature_levels", "1",
+                "--output_dir", "exps/r50_deformable_detr_single_scale",
+                "--resume", "ckpts/r50_deformable_detr_single_scale-checkpoint.pth",
+                "--eval"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        }
+    ]
+}

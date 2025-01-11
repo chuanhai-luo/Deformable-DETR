@@ -22,6 +22,9 @@ from .torchvision_datasets import CocoDetection as TvCocoDetection
 from util.misc import get_local_rank, get_local_size
 import datasets.transforms as T
 
+import numpy as np
+from pycocotools.coco import COCO
+
 
 class CocoDetection(TvCocoDetection):
     def __init__(self, img_folder, ann_file, transforms, return_masks, cache_mode=False, local_rank=0, local_size=1):
@@ -30,14 +33,22 @@ class CocoDetection(TvCocoDetection):
         self._transforms = transforms
         self.prepare = ConvertCocoPolysToMask(return_masks)
 
+        coco = COCO(ann_file)
+        categories = coco.loadCats(coco.getCatIds())
+        self.category_id_to_name = {cat['id']: cat['name'] for cat in categories}
+
     def __getitem__(self, idx):
         img, target = super(CocoDetection, self).__getitem__(idx)
+
+        image = np.array(img)
+        orig_data = {"image": image, "label": target}
+
         image_id = self.ids[idx]
         target = {'image_id': image_id, 'annotations': target}
         img, target = self.prepare(img, target)
         if self._transforms is not None:
             img, target = self._transforms(img, target)
-        return img, target
+        return img, target, orig_data
 
 
 def convert_coco_poly_to_mask(segmentations, height, width):

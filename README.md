@@ -71,7 +71,7 @@ If you find Deformable DETR useful in your research, please consider citing:
 
     We recommend you to use Anaconda to create a conda environment:
     ```bash
-    conda create -n deformable_detr python=3.7 pip
+    conda create -n deformable_detr python=3.8.11 pip
     ```
     Then, activate the environment:
     ```bash
@@ -82,7 +82,7 @@ If you find Deformable DETR useful in your research, please consider citing:
 
     For example, if your CUDA version is 9.2, you could install pytorch and torchvision as following:
     ```bash
-    conda install pytorch=1.5.1 torchvision=0.6.1 cudatoolkit=9.2 -c pytorch
+    pip install torch==2.4.1 torchvision==0.19.1 torchaudio==2.4.1 --index-url https://download.pytorch.org/whl/cu121
     ```
   
 * Other requirements
