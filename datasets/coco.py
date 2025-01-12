@@ -23,6 +23,7 @@ from util.misc import get_local_rank, get_local_size
 import datasets.transforms as T
 
 import numpy as np
+import cv2
 from pycocotools.coco import COCO
 
 
@@ -41,6 +42,7 @@ class CocoDetection(TvCocoDetection):
         img, target = super(CocoDetection, self).__getitem__(idx)
 
         image = np.array(img)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         orig_data = {"image": image, "label": target}
 
         image_id = self.ids[idx]
@@ -156,7 +158,7 @@ def make_coco_transforms(image_set):
             normalize,
         ])
 
-    if image_set == 'val':
+    if image_set in ['val', 'test']:
         return T.Compose([
             T.RandomResize([800], max_size=1333),
             normalize,
@@ -172,6 +174,7 @@ def build(image_set, args):
     PATHS = {
         "train": (root / "train2017", root / "annotations" / f'{mode}_train2017.json'),
         "val": (root / "val2017", root / "annotations" / f'{mode}_val2017.json'),
+        "test": (root / "test2017", root / "annotations" / "image_info_test2017.json"),
     }
 
     img_folder, ann_file = PATHS[image_set]

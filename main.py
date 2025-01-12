@@ -151,6 +151,7 @@ def main(args):
 
     dataset_train = build_dataset(image_set='train', args=args)
     dataset_val = build_dataset(image_set='val', args=args)
+    # dataset_val = build_dataset(image_set='test', args=args)
 
     if args.distributed:
         if args.cache_mode:

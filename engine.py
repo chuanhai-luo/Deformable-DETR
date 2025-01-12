@@ -195,10 +195,14 @@ def draw_gt_pred(image, gt, prediction, data_loader, draw=False):
     cv2.putText(gt_vis, "gt", (2, 13), cv2.FONT_HERSHEY_SIMPLEX, 
                 0.5, (0, 0, 0), 1, cv2.LINE_AA)
     
-    for i in range(len(gt)):
+    testing = len(gt) == 0
+    for i in range(len(gt) if not testing else prediction["labels"].shape[0]):
         bbox = prediction["boxes"][i].cpu().numpy().astype(np.int32)
         label = prediction["labels"][i].item()
         score = prediction["scores"][i].item()
+
+        if testing and score < 0.3:
+            continue
 
         cv2.rectangle(pred_vis, bbox[:2], bbox[2:], (0, 0, 255), 1)
         cv2.putText(pred_vis, data_loader.dataset.category_id_to_name[label], 
