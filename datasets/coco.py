@@ -39,11 +39,11 @@ class CocoDetection(TvCocoDetection):
         self.category_id_to_name = {cat['id']: cat['name'] for cat in categories}
 
     def __getitem__(self, idx):
-        img, target = super(CocoDetection, self).__getitem__(idx)
+        img, target, file_name = super(CocoDetection, self).__getitem__(idx)
 
         image = np.array(img)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        orig_data = {"image": image, "label": target}
+        orig_data = {"image": image, "label": target, "file_name": file_name}
 
         image_id = self.ids[idx]
         target = {'image_id': image_id, 'annotations': target}

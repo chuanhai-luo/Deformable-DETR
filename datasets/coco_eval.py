@@ -20,7 +20,7 @@ import copy
 import numpy as np
 import torch
 
-from pycocotools.cocoeval import COCOeval
+from datasets.cocoeval import COCOeval # inherit from pycocotools
 from pycocotools.coco import COCO
 import pycocotools.mask as mask_util
 
@@ -40,6 +40,7 @@ class CocoEvaluator(object):
 
         self.img_ids = []
         self.eval_imgs = {k: [] for k in iou_types}
+        self.kpi = {}
 
     def update(self, predictions):
         img_ids = list(np.unique(list(predictions.keys())))
@@ -70,9 +71,11 @@ class CocoEvaluator(object):
             coco_eval.accumulate()
 
     def summarize(self):
+        kpi = {}
         for iou_type, coco_eval in self.coco_eval.items():
             print("IoU metric: {}".format(iou_type))
-            coco_eval.summarize()
+            kpi[iou_type] = coco_eval.summarize()
+        self.kpi = kpi
 
     def prepare(self, predictions, iou_type):
         if iou_type == "bbox":

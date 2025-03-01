@@ -83,7 +83,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
 
 @torch.no_grad()
-def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, output_dir):
+def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, output_dir, viz):
     model.eval()
     criterion.eval()
 
@@ -125,7 +125,8 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         orig_target_sizes = torch.stack([t["orig_size"] for t in targets], dim=0)
         results = postprocessors['bbox'](outputs, orig_target_sizes)
 
-        visualize(results, orig_data, data_loader)
+        if viz:
+            visualize(results, orig_data, data_loader, output_dir)
 
         if 'segm' in postprocessors.keys():
             target_sizes = torch.stack([t["size"] for t in targets], dim=0)
@@ -171,30 +172,27 @@ def evaluate(model, criterion, postprocessors, data_loader, base_ds, device, out
         stats['PQ_st'] = panoptic_res["Stuff"]
     return stats, coco_evaluator
 
-def draw_gt_pred(image, gt, prediction, data_loader, draw=False):
-    if not draw:
-        return
-    
-    image_save_dir = "/home/ocean/Projects/Deformable-DETR/debug"
+def draw_gt_pred(image, gt, prediction, file_name, data_loader, output_dir):
+    image_save_dir = os.path.join(output_dir, "viz")
     if not os.path.exists(image_save_dir):
         os.makedirs(image_save_dir, exist_ok=True)
 
     gt_vis = image.copy()
     pred_vis = image.copy()
-    
+
     for object in gt:
         bbox = np.array(object["bbox"]).astype(np.int32)
 
         cv2.rectangle(gt_vis, bbox[:2], bbox[:2] + bbox[2:], (0, 0, 255), 1)
-        cv2.putText(gt_vis, data_loader.dataset.category_id_to_name[object["category_id"]], 
-                    bbox[:2], cv2.FONT_HERSHEY_SIMPLEX, 
+        cv2.putText(gt_vis, data_loader.dataset.category_id_to_name[object["category_id"]],
+                    bbox[:2], cv2.FONT_HERSHEY_SIMPLEX,
                     0.5, (0, 255, 0), 1, cv2.LINE_AA)
-        
-    gt_vis = np.concatenate((np.ones((20, gt_vis.shape[1], gt_vis.shape[2])) * 255, 
+
+    gt_vis = np.concatenate((np.ones((20, gt_vis.shape[1], gt_vis.shape[2])) * 255,
                              gt_vis))
-    cv2.putText(gt_vis, "gt", (2, 13), cv2.FONT_HERSHEY_SIMPLEX, 
+    cv2.putText(gt_vis, "gt", (2, 13), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (0, 0, 0), 1, cv2.LINE_AA)
-    
+
     testing = len(gt) == 0
     for i in range(len(gt) if not testing else prediction["labels"].shape[0]):
         bbox = prediction["boxes"][i].cpu().numpy().astype(np.int32)
@@ -205,21 +203,22 @@ def draw_gt_pred(image, gt, prediction, data_loader, draw=False):
             continue
 
         cv2.rectangle(pred_vis, bbox[:2], bbox[2:], (0, 0, 255), 1)
-        cv2.putText(pred_vis, data_loader.dataset.category_id_to_name[label], 
-                    bbox[:2], cv2.FONT_HERSHEY_SIMPLEX, 
+        cv2.putText(pred_vis, data_loader.dataset.category_id_to_name[label],
+                    bbox[:2], cv2.FONT_HERSHEY_SIMPLEX,
                     0.5, (0, 255, 0), 1, cv2.LINE_AA)
 
-    pred_vis = np.concatenate((np.ones((20, pred_vis.shape[1], pred_vis.shape[2])) * 255, 
+    pred_vis = np.concatenate((np.ones((20, pred_vis.shape[1], pred_vis.shape[2])) * 255,
                                pred_vis))
-    cv2.putText(pred_vis, "prediction", (2, 13), cv2.FONT_HERSHEY_SIMPLEX, 
+    cv2.putText(pred_vis, "prediction", (2, 13), cv2.FONT_HERSHEY_SIMPLEX,
                 0.5, (0, 0, 0), 1, cv2.LINE_AA)
 
-    cv2.imwrite(os.path.join(image_save_dir, f"image.png"), 
+    cv2.imwrite(os.path.join(image_save_dir, f"{file_name}.png"),
                 np.concatenate((gt_vis, pred_vis), axis=1))
 
-def visualize(results, orig_data, data_loader):
+def visualize(results, orig_data, data_loader, output_dir):
     for prediction, data in zip(results, orig_data):
         image = data["image"]
         label = data["label"]
+        file_name = data["file_name"]
 
-        draw_gt_pred(image, label, prediction, data_loader, True)
+        draw_gt_pred(image, label, prediction, file_name, data_loader, output_dir)

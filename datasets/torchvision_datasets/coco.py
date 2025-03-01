@@ -72,13 +72,13 @@ class CocoDetection(VisionDataset):
         ann_ids = coco.getAnnIds(imgIds=img_id)
         target = coco.loadAnns(ann_ids)
 
-        path = coco.loadImgs(img_id)[0]['file_name']
+        file_name = coco.loadImgs(img_id)[0]['file_name']
 
-        img = self.get_image(path)
+        img = self.get_image(file_name)
         if self.transforms is not None:
             img, target = self.transforms(img, target)
 
-        return img, target
+        return img, target, os.path.splitext(file_name)[0]
 
     def __len__(self):
         return len(self.ids)
