@@ -12,6 +12,7 @@ Backbone modules.
 """
 from collections import OrderedDict
 
+import os
 import torch
 import torch.nn.functional as F
 import torchvision
@@ -80,17 +81,37 @@ class BackboneBase(nn.Module):
             return_layers = {'layer4': "0"}
             self.strides = [32]
             self.num_channels = [2048]
-        self.body = IntermediateLayerGetter(backbone, return_layers=return_layers)
+        self.return_layers = return_layers
+        self.body = IntermediateLayerGetter(backbone, return_layers=self.return_layers)
 
-    def forward(self, tensor_list: NestedTensor):
-        xs = self.body(tensor_list.tensors)
-        out: Dict[str, NestedTensor] = {}
+    def forward(self, samples):
+        xs = self.body(samples[0])
+        out: Dict[str, tuple] = {}
         for name, x in xs.items():
-            m = tensor_list.mask
+            m = samples[1]
             assert m is not None
             mask = F.interpolate(m[None].float(), size=x.shape[-2:]).to(torch.bool)[0]
-            out[name] = NestedTensor(x, mask)
-        return out
+            out[name] = (x, mask)
+
+        new_out: List[tuple] = []
+        for i in range(len(self.return_layers)):
+            new_out.append(out[str(i)])
+
+        return new_out
+
+    def dynamo_export_onnx(self):
+        b, c, h, w = (1, 3, 800, 1000)
+        tensor = torch.zeros((b, c, h, w), dtype=torch.float32, device=torch.device('cpu'))
+        mask = torch.ones((b, h, w), dtype=torch.bool, device=torch.device('cpu'))
+        
+        return torch.onnx.dynamo_export(self, [tensor, mask])
+    
+    def export_onnx(self, save_path):
+        b, c, h, w = (1, 3, 800, 1000)
+        tensor = torch.zeros((b, c, h, w), dtype=torch.float32, device=torch.device('cpu'))
+        mask = torch.ones((b, h, w), dtype=torch.bool, device=torch.device('cpu'))
+
+        return torch.onnx.export(self, ([tensor, mask]), os.path.join(save_path, "backbone.onnx"))
 
 
 class Backbone(BackboneBase):
@@ -115,18 +136,15 @@ class Joiner(nn.Sequential):
         self.strides = backbone.strides
         self.num_channels = backbone.num_channels
 
-    def forward(self, tensor_list: NestedTensor):
-        xs = self[0](tensor_list)
-        out: List[NestedTensor] = []
+    def forward(self, samples):
+        xs = self[0](samples)
+
         pos = []
-        for name, x in sorted(xs.items()):
-            out.append(x)
-
         # position encoding
-        for x in out:
-            pos.append(self[1](x).to(x.tensors.dtype))
+        for x in xs:
+            pos.append(self[1](x[0], x[1]).to(x[0].dtype))
 
-        return out, pos
+        return xs, pos
 
 
 def build_backbone(args):

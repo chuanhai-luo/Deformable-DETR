@@ -33,9 +33,7 @@ class PositionEmbeddingSine(nn.Module):
             scale = 2 * math.pi
         self.scale = scale
 
-    def forward(self, tensor_list: NestedTensor):
-        x = tensor_list.tensors
-        mask = tensor_list.mask
+    def forward(self, x, mask):
         assert mask is not None
         not_mask = ~mask
         y_embed = not_mask.cumsum(1, dtype=torch.float32)
@@ -54,6 +52,13 @@ class PositionEmbeddingSine(nn.Module):
         pos_y = torch.stack((pos_y[:, :, :, 0::2].sin(), pos_y[:, :, :, 1::2].cos()), dim=4).flatten(3)
         pos = torch.cat((pos_y, pos_x), dim=3).permute(0, 3, 1, 2)
         return pos
+    
+    def export_onnx(self):
+        b, c, h, w = (1, 3, 800, 1000)
+        tensor = torch.zeros((b, c, h, w), dtype=torch.float32, device=torch.device('cpu'))
+        mask = torch.ones((b, h, w), dtype=torch.bool, device=torch.device('cpu'))
+        
+        return torch.onnx.dynamo_export(self, NestedTensor(tensor, mask))
 
 
 class PositionEmbeddingLearned(nn.Module):
@@ -83,6 +88,12 @@ class PositionEmbeddingLearned(nn.Module):
         ], dim=-1).permute(2, 0, 1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
         return pos
 
+    def export_onnx(self):
+        b, c, h, w = (1, 3, 800, 1000)
+        tensor = torch.zeros((b, c, h, w), dtype=torch.float32, device=torch.device('cpu'))
+        mask = torch.ones((b, h, w), dtype=torch.bool, device=torch.device('cpu'))
+        
+        return torch.onnx.dynamo_export(self, NestedTensor(tensor, mask))
 
 def build_position_encoding(args):
     N_steps = args.hidden_dim // 2

@@ -124,6 +124,7 @@ def get_args_parser():
     parser.add_argument('--cache_mode', default=False, action='store_true', help='whether to cache images on memory')
 
     parser.add_argument('--viz', action="store_true")
+    parser.add_argument('--export_onnx', action="store_true")
 
     return parser
 
@@ -145,6 +146,21 @@ def main(args):
     random.seed(seed)
 
     model, criterion, postprocessors = build_model(args)
+
+    if args.export_onnx:
+        model.backbone[0].export_onnx(args.output_dir)
+
+        # backbone_onnx = model.backbone[0].dynamo_export_onnx()
+        # backbone_onnx.save(os.path.join(args.output_dir, "backbone_onnx.onnx"))
+
+        # position_embedding_onnx = model.backbone[1].export_onnx()
+        # position_embedding_onnx.save(os.path.join(args.output_dir, "position_embedding_onnx.onnx"))
+
+        # onnx_model = model.export_onnx()
+        # onnx_model.save(os.path.join(args.output_dir, "deformable_detr.onnx"))
+
+        return
+
     model.to(device)
 
     model_without_ddp = model

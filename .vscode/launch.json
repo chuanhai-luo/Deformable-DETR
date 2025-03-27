@@ -15,7 +15,8 @@
                 "--num_feature_levels", "1",
                 "--output_dir", "exps/r50_deformable_detr_single_scale",
                 "--resume", "ckpts/r50_deformable_detr_single_scale-checkpoint.pth",
-                "--eval"
+                // "--eval",
+                "--export_onnx"
             ],
             "justMyCode": false
         },

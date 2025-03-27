@@ -27,6 +27,8 @@ from torch import Tensor
 
 import torchvision
 
+from torch.utils._pytree import register_pytree_node
+
 
 class SmoothedValue(object):
     """Track a series of values and provide access to smoothed values over a
@@ -272,7 +274,7 @@ def get_sha():
 
 def collate_fn(batch):
     batch = list(zip(*batch))
-    batch[0] = nested_tensor_from_tensor_list(batch[0])
+    batch[0] = nested_tensor_from_tensor_list(batch[0]) # compute mask to img
     return tuple(batch)
 
 
@@ -302,7 +304,7 @@ def nested_tensor_from_tensor_list(tensor_list: List[Tensor]):
             m[: img.shape[1], :img.shape[2]] = False
     else:
         raise ValueError('not supported')
-    return NestedTensor(tensor, mask)
+    return [tensor, mask]
 
 
 class NestedTensor(object):
@@ -332,6 +334,11 @@ class NestedTensor(object):
     def __repr__(self):
         return str(self.tensors)
 
+register_pytree_node(
+    NestedTensor,
+    flatten_fn=lambda x: ([x.tensors, x.mask], None),
+    unflatten_fn=lambda data, _: NestedTensor(data[0], data[1])
+)
 
 def setup_for_distributed(is_master):
     """

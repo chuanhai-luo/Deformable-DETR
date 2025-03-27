@@ -111,7 +111,7 @@ class DeformableDETR(nn.Module):
             for box_embed in self.bbox_embed:
                 nn.init.constant_(box_embed.layers[-1].bias.data[2:], 0.0)
 
-    def forward(self, samples: NestedTensor):
+    def forward(self, samples: list):
         """ The forward expects a NestedTensor, which consists of:
                - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
                - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels
@@ -126,14 +126,17 @@ class DeformableDETR(nn.Module):
                - "aux_outputs": Optional, only returned when auxilary losses are activated. It is a list of
                                 dictionnaries containing the two above keys for each decoder layer.
         """
-        if not isinstance(samples, NestedTensor):
-            samples = nested_tensor_from_tensor_list(samples)
+        # if not isinstance(samples, NestedTensor):
+        #     samples = nested_tensor_from_tensor_list(samples)
         features, pos = self.backbone(samples)
 
         srcs = []
         masks = []
         for l, feat in enumerate(features):
-            src, mask = feat.decompose()
+            # src, mask = feat.decompose()
+            src = feat[0]
+            mask = feat[1]
+
             srcs.append(self.input_proj[l](src))
             masks.append(mask)
             assert mask is not None
@@ -185,6 +188,13 @@ class DeformableDETR(nn.Module):
             enc_outputs_coord = enc_outputs_coord_unact.sigmoid()
             out['enc_outputs'] = {'pred_logits': enc_outputs_class, 'pred_boxes': enc_outputs_coord}
         return out
+
+    def export_onnx(self):
+        b, c, h, w = (1, 3, 800, 1000)
+        tensor = torch.zeros((b, c, h, w), dtype=torch.float32, device=torch.device('cpu'))
+        mask = torch.ones((b, h, w), dtype=torch.bool, device=torch.device('cpu'))
+        
+        return torch.onnx.dynamo_export(self, NestedTensor(tensor, mask))
 
     @torch.jit.unused
     def _set_aux_loss(self, outputs_class, outputs_coord):
