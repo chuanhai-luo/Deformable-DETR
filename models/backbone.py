@@ -99,19 +99,16 @@ class BackboneBase(nn.Module):
 
         return new_out
 
-    def dynamo_export_onnx(self):
-        b, c, h, w = (1, 3, 800, 1000)
-        tensor = torch.zeros((b, c, h, w), dtype=torch.float32, device=torch.device('cpu'))
-        mask = torch.ones((b, h, w), dtype=torch.bool, device=torch.device('cpu'))
-        
-        return torch.onnx.dynamo_export(self, [tensor, mask])
-    
     def export_onnx(self, save_path):
         b, c, h, w = (1, 3, 800, 1000)
-        tensor = torch.zeros((b, c, h, w), dtype=torch.float32, device=torch.device('cpu'))
+        img = torch.zeros((b, c, h, w), dtype=torch.float32, device=torch.device('cpu'))
         mask = torch.ones((b, h, w), dtype=torch.bool, device=torch.device('cpu'))
 
-        return torch.onnx.export(self, ([tensor, mask]), os.path.join(save_path, "backbone.onnx"))
+        return torch.onnx.export(self.eval(),
+                                 ([img, mask]),
+                                 os.path.join(save_path, "backbone.onnx"),
+                                 input_names=["img", "mask"],
+                                 output_names=[item for i in range(len(self.return_layers)) for item in (f"feat_{i}", f"mask_{i}")])
 
 
 class Backbone(BackboneBase):
